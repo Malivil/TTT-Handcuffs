@@ -12,6 +12,7 @@
         "util",
         "IsValid",
         "timer",
-        "hook"
+        "hook",
+        "HUD_PRINTTALK"
     ]
 }

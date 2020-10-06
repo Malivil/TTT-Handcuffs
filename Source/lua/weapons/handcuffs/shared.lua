@@ -62,7 +62,6 @@ SWEP.Secondary.DefaultClip = -1
 SWEP.Secondary.Automatic   = false
 SWEP.Secondary.Ammo        = "none"
 
-
 function SWEP:Reload()
 end
 
@@ -81,7 +80,30 @@ function SWEP:Initialize()
     self:SetWeaponHoldType(self.HoldType)
 end
 
+local function ReleasePlayer(ply)
+    timer.Stop(ply:Nick() .. "_CantPickUp")
+    ply:SetNWBool("IsCuffed", false)
+    ply:SetNWEntity("CuffedBy", nil)
+    ply:SetNWBool("WasCuffed", true)
+    ply:Give("weapon_zm_improvised")
+    ply:Give("weapon_zm_carry")
+    ply:Give("weapon_ttt_unarmed")
+    ply:PrintMessage(HUD_PRINTCENTER, "You are released.")
+end
+
 function SWEP:PrimaryAttack()
+    if SERVER then
+        -- Release the other players cuffed by this person
+        for _, v in pairs(player.GetAll()) do
+            if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == self.Owner then
+                ReleasePlayer(v)
+                if IsValid(self.Owner) then
+                    self.Owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
+                end
+            end
+        end
+    end
+
     local trace = { }
     trace.start = self.Owner:EyePos()
     trace.endpos = trace.start + self.Owner:GetAimVector() * 95
@@ -90,7 +112,7 @@ function SWEP:PrimaryAttack()
     local tr = util.TraceLine(trace)
     local target = tr.Entity
     if target:IsValid() and (target:IsPlayer() or target:IsNPC()) then
-        if target:GetNWBool("GotCuffed", false) or target:GetNWBool("FrozenYay", false) then
+        if target:GetNWBool("WasCuffed", false) or target:GetNWBool("IsCuffed", false) then
             self.Owner:PrintMessage(HUD_PRINTCENTER, "You can't cuff the same person 2 times.")
             return
         end
@@ -102,45 +124,29 @@ function SWEP:PrimaryAttack()
         target:EmitSound("npc/metropolice/vo/holdit.wav", 50, 100)
 
         if not IsValid(self.Owner) then return end
-        self.IsWeaponChecking = false
 
-        timer.Create("EndCuffed", 30, 1, function()
-            if SERVER then
-                if target:IsValid() and (target:IsPlayer() or target:IsNPC()) then
-                    if target:GetNWBool("FrozenYay", false) then
-                        timer.Stop("CantPickUp")
-                        target:SetNWBool("FrozenYay", false)
-                        target:SetNWBool("GotCuffed", true)
-                        target:Give("weapon_zm_improvised")
-                        target:Give("weapon_zm_carry")
-                        target:Give("weapon_ttt_unarmed")
-                        target:PrintMessage(HUD_PRINTCENTER, "You are released.")
-                        if IsValid(self.Owner) then
-                            self.Owner:PrintMessage(HUD_PRINTCENTER, "30 seconds are up.")
-                        end
-                    end
+        timer.Create(target:Nick() .. "_EndCuffed", 30, 1, function()
+            if SERVER and target:IsValid() and (target:IsPlayer() or target:IsNPC()) and target:GetNWBool("IsCuffed", false) then
+                ReleasePlayer(target)
+                if IsValid(self.Owner) then
+                    self.Owner:PrintMessage(HUD_PRINTCENTER, "30 seconds are up.")
                 end
             end
         end)
 
         if CLIENT then return end
 
-        timer.Create("CantPickUp", 0.01, 0, function()
+        timer.Create(target:Nick() .. "_CantPickUp", 0.01, 0, function()
             if not IsValid(target) or not target:IsPlayer() then return end
 
-            target:SetNWBool("FrozenYay", true)
+            target:SetNWBool("IsCuffed", true)
+            target:SetNWEntity("CuffedBy", self.Owner)
             for _, v in pairs(target:GetWeapons()) do
                 target:DropWeapon(v)
                 local class = v:GetClass()
                 if SERVER then
                     target:StripWeapon(class)
                 end
-            end
-        end)
-
-        hook.Add("PlayerCanPickupWeapon", "noDoublePickup", function(ply, wep)
-            if ply:IsValid() and ply:GetNWBool("FrozenYay", false) and ply:GetNWBool("GotCuffed", false) then
-                return false
             end
         end)
     end
@@ -157,32 +163,40 @@ function SWEP:SecondaryAttack()
         local target = tr.Entity
 
         if target:IsValid() and target:IsPlayer() and target:Alive() then
-            if target:GetNWBool("FrozenYay", false) then
-                timer.Stop("CantPickUp")
-                target:SetNWBool("FrozenYay", false)
-                target:SetNWBool("GotCuffed", true)
-                target:Give("weapon_zm_improvised")
-                target:Give("weapon_zm_carry")
-                target:Give("weapon_ttt_unarmed")
-                target:PrintMessage(HUD_PRINTCENTER,"You are released.")
+            if target:GetNWBool("IsCuffed", false) then
+                ReleasePlayer(target)
                 target:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
                 self.Owner:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
-            elseif target:GetNWBool("GotCuffed", false) or target:GetNWBool("FrozenYay", false) then
+            elseif target:GetNWBool("WasCuffed", false) or not target:GetNWBool("IsCuffed", false) then
                 self.Owner:PrintMessage(HUD_PRINTCENTER, "Player isn't cuffed")
             end
         end
     end
 end
 
+local function ClearPlayer(ply)
+    ply:SetNWBool("WasCuffed", false)
+    ply:SetNWBool("IsCuffed", false)
+    ply:SetNWEntity("CuffedBy", nil)
+    timer.Stop(ply:Nick() .. "_EndCuffed")
+    timer.Stop(ply:Nick() .. "_CantPickUp")
+end
 
 local function StopCantPickUp()
-    timer.Stop("EndCuffed")
-    timer.Stop("CantPickUp")
     for _, v in pairs(player.GetAll()) do
-        v:SetNWBool("GotCuffed", false)
-        v:SetNWBool("FrozenYay", false)
+        ClearPlayer(v)
     end
 end
-hook.Add("TTTEndRound", "CantPickUpEnd_TER", StopCantPickUp)
-hook.Add("PlayerDisconnected", "CantPickUpEnd_PD", StopCantPickUp)
-hook.Add("TTTBeginRound", "CantPickUpEnd_TBR", StopCantPickUp)
+hook.Add("TTTEndRound", "HandCuffs_TER", StopCantPickUp)
+hook.Add("TTTBeginRound", "HandCuffs_TBR", StopCantPickUp)
+
+hook.Add("PlayerDeath", "HandCuffs_PDTH", function(victim, infl, attacker)
+    ClearPlayer(victim)
+end)
+hook.Add("PlayerDisconnected", "HandCuffs_PDC", ClearPlayer)
+
+hook.Add("PlayerCanPickupWeapon", "HandCuffs_PCPW", function(ply, wep)
+    if ply:IsValid() and ply:GetNWBool("IsCuffed", false) and ply:GetNWBool("WasCuffed", false) then
+        return false
+    end
+end)
