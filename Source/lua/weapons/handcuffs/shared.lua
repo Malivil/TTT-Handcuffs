@@ -82,20 +82,6 @@ function SWEP:Initialize()
 end
 
 function SWEP:PrimaryAttack()
-    if SERVER then
-        for _, v in pairs(player.GetAll()) do
-            if v:IsValid() and (v:IsPlayer() or v:IsNPC()) then
-                if v:GetNWBool("FrozenYay", false) then
-                    v:SetNWBool("FrozenYay", false)
-                    v:SetNWBool("GotCuffed", true)
-                    v:Give("weapon_zm_improvised")
-                    v:Give("weapon_zm_carry")
-                    v:Give("weapon_ttt_unarmed")
-                end
-            end
-        end
-    end
-
     local trace = { }
     trace.start = self.Owner:EyePos()
     trace.endpos = trace.start + self.Owner:GetAimVector() * 95
