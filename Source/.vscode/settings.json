@@ -1,0 +1,17 @@
+{
+    "Lua.diagnostics.globals": [
+        "SERVER",
+        "AddCSLuaFile",
+        "resource",
+        "CLIENT",
+        "SWEP",
+        "WEAPON_EQUIP2",
+        "ROLE_DETECTIVE",
+        "player",
+        "HUD_PRINTCENTER",
+        "util",
+        "IsValid",
+        "timer",
+        "hook"
+    ]
+}

@@ -1,0 +1,14 @@
+{
+  "title": "TTT Handcuffs (Fixed)",
+  "type": "ServerContent",
+  "ignore": [
+    ".git*",
+	".vscode*",
+    "*.iml",
+    ".idea*",
+    "*.psd",
+    "*.vcproj",
+    "*.svn*",
+    "LICENSE"
+  ]
+}
