@@ -140,11 +140,12 @@ function SWEP:PrimaryAttack()
             target:SetNWBool("IsCuffed", true)
             target:SetNWEntity("CuffedBy", self.Owner)
             for _, v in pairs(target:GetWeapons()) do
-                target:DropWeapon(v)
                 local class = v:GetClass()
-                if SERVER then
-                    target:StripWeapon(class)
+                -- Don't drop crowbar since a new one is given
+                if class ~= "weapon_zm_improvised" then
+                    target:DropWeapon(v)
                 end
+                target:StripWeapon(class)
             end
         end)
     end
@@ -195,7 +196,7 @@ if SERVER then
     hook.Add("PlayerDisconnected", "HandCuffs_PDC", ClearPlayer)
 
     hook.Add("PlayerCanPickupWeapon", "HandCuffs_PCPW", function(ply, wep)
-        if ply:IsValid() and ply:GetNWBool("IsCuffed", false) and ply:GetNWBool("WasCuffed", false) then
+        if ply:IsValid() and ply:GetNWBool("IsCuffed", false) then
             return false
         end
     end)
