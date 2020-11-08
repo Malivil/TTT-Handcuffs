@@ -92,19 +92,20 @@ local function ReleasePlayer(ply)
 end
 
 function SWEP:PrimaryAttack()
-    if SERVER then
-        -- Release the other players cuffed by this person
-        for _, v in pairs(player.GetAll()) do
-            if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == self.Owner then
-                ReleasePlayer(v)
-                if IsValid(self.Owner) then
-                    self.Owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
-                end
+    if CLIENT then return end
+
+    -- Release the other players cuffed by this person
+    for _, v in pairs(player.GetAll()) do
+        if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == self.Owner then
+            ReleasePlayer(v)
+            if IsValid(self.Owner) then
+                self.Owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
             end
+            break
         end
     end
 
-    local trace = { }
+    local trace = {}
     trace.start = self.Owner:EyePos()
     trace.endpos = trace.start + self.Owner:GetAimVector() * 95
     trace.filter = self.Owner
@@ -112,6 +113,7 @@ function SWEP:PrimaryAttack()
     local tr = util.TraceLine(trace)
     local target = tr.Entity
     if target:IsValid() and (target:IsPlayer() or target:IsNPC()) then
+        if not IsValid(self.Owner) then return end
         if target:GetNWBool("WasCuffed", false) or target:GetNWBool("IsCuffed", false) then
             self.Owner:PrintMessage(HUD_PRINTCENTER, "You can't cuff the same person 2 times.")
             return
@@ -123,18 +125,14 @@ function SWEP:PrimaryAttack()
         target:PrintMessage(HUD_PRINTCENTER, "You was cuffed.")
         target:EmitSound("npc/metropolice/vo/holdit.wav", 50, 100)
 
-        if not IsValid(self.Owner) then return end
-
         timer.Create(target:Nick() .. "_EndCuffed", 30, 1, function()
-            if SERVER and target:IsValid() and (target:IsPlayer() or target:IsNPC()) and target:GetNWBool("IsCuffed", false) then
+            if target:IsValid() and (target:IsPlayer() or target:IsNPC()) and target:GetNWBool("IsCuffed", false) then
                 ReleasePlayer(target)
                 if IsValid(self.Owner) then
                     self.Owner:PrintMessage(HUD_PRINTCENTER, "30 seconds are up.")
                 end
             end
         end)
-
-        if CLIENT then return end
 
         timer.Create(target:Nick() .. "_CantPickUp", 0.01, 0, function()
             if not IsValid(target) or not target:IsPlayer() then return end
@@ -153,50 +151,52 @@ function SWEP:PrimaryAttack()
 end
 
 function SWEP:SecondaryAttack()
-    if SERVER then
-        local trace = { }
-        trace.start = self.Owner:EyePos()
-        trace.endpos = trace.start + self.Owner:GetAimVector() * 95
-        trace.filter = self.Owner
+    if CLIENT then return end
 
-        local tr = util.TraceLine(trace)
-        local target = tr.Entity
+    local trace = { }
+    trace.start = self.Owner:EyePos()
+    trace.endpos = trace.start + self.Owner:GetAimVector() * 95
+    trace.filter = self.Owner
 
-        if target:IsValid() and target:IsPlayer() and target:Alive() then
-            if target:GetNWBool("IsCuffed", false) then
-                ReleasePlayer(target)
-                target:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
-                self.Owner:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
-            elseif target:GetNWBool("WasCuffed", false) or not target:GetNWBool("IsCuffed", false) then
-                self.Owner:PrintMessage(HUD_PRINTCENTER, "Player isn't cuffed")
-            end
+    local tr = util.TraceLine(trace)
+    local target = tr.Entity
+
+    if target:IsValid() and target:IsPlayer() and target:Alive() then
+        if target:GetNWBool("IsCuffed", false) then
+            ReleasePlayer(target)
+            target:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
+            self.Owner:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
+        elseif target:GetNWBool("WasCuffed", false) or not target:GetNWBool("IsCuffed", false) then
+            self.Owner:PrintMessage(HUD_PRINTCENTER, "Player isn't cuffed")
         end
     end
 end
 
-local function ClearPlayer(ply)
-    ply:SetNWBool("WasCuffed", false)
-    ply:SetNWBool("IsCuffed", false)
-    ply:SetNWEntity("CuffedBy", nil)
-    timer.Stop(ply:Nick() .. "_EndCuffed")
-    timer.Stop(ply:Nick() .. "_CantPickUp")
-end
-
-local function StopCantPickUp()
-    for _, v in pairs(player.GetAll()) do
-        ClearPlayer(v)
+if SERVER then
+    local function ClearPlayer(ply)
+        ply:SetNWBool("WasCuffed", false)
+        ply:SetNWBool("IsCuffed", false)
+        ply:SetNWEntity("CuffedBy", nil)
+        timer.Stop(ply:Nick() .. "_EndCuffed")
+        timer.Stop(ply:Nick() .. "_CantPickUp")
     end
-end
-hook.Add("TTTEndRound", "HandCuffs_TER", StopCantPickUp)
-hook.Add("TTTBeginRound", "HandCuffs_TBR", StopCantPickUp)
 
-hook.Add("PlayerDeath", "HandCuffs_PDTH", function(victim, infl, attacker)
-    ClearPlayer(victim)
-end)
-hook.Add("PlayerDisconnected", "HandCuffs_PDC", ClearPlayer)
-
-hook.Add("PlayerCanPickupWeapon", "HandCuffs_PCPW", function(ply, wep)
-    if ply:IsValid() and ply:GetNWBool("IsCuffed", false) and ply:GetNWBool("WasCuffed", false) then
-        return false
+    local function StopCantPickUp()
+        for _, v in pairs(player.GetAll()) do
+            ClearPlayer(v)
+        end
     end
-end)
+    hook.Add("TTTEndRound", "HandCuffs_TER", StopCantPickUp)
+    hook.Add("TTTBeginRound", "HandCuffs_TBR", StopCantPickUp)
+
+    hook.Add("PlayerDeath", "HandCuffs_PDTH", function(victim, infl, attacker)
+        ClearPlayer(victim)
+    end)
+    hook.Add("PlayerDisconnected", "HandCuffs_PDC", ClearPlayer)
+
+    hook.Add("PlayerCanPickupWeapon", "HandCuffs_PCPW", function(ply, wep)
+        if ply:IsValid() and ply:GetNWBool("IsCuffed", false) and ply:GetNWBool("WasCuffed", false) then
+            return false
+        end
+    end)
+end
