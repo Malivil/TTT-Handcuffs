@@ -26,12 +26,18 @@ if CLIENT then
 
 end
 
-SWEP.Base                  = "weapon_tttbase"
-SWEP.Author                = "Converted by Porter"
+if engine.ActiveGamemode() == "terrortown" then
+    SWEP.Base              = "weapon_tttbase"
+else
+    SWEP.Base              = "weapon_base"
+end
+SWEP.Author                = "Converted by Porter. Updated by Malivil"
+SWEP.Category              = "Other"
 SWEP.PrintName             = "Handcuffs"
+SWEP.ClassName             = "weapon_ttt_handcuffs"
 SWEP.Purpose               = "Make it so someone can't use weapons"
 SWEP.Instructions          = "Left click to put cuffs on. Right click to take cuffs off."
-SWEP.Spawnable             = false
+SWEP.Spawnable             = true
 SWEP.AdminSpawnable        = true
 SWEP.HoldType              = "normal"
 SWEP.UseHands              = true
