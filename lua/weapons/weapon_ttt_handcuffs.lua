@@ -100,42 +100,45 @@ end
 function SWEP:PrimaryAttack()
     if CLIENT then return end
 
+    local owner = self:GetOwner()
+    if not IsValid(owner) then return end
+
     -- Release the other players cuffed by this person
     for _, v in pairs(player.GetAll()) do
-        if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == self.Owner then
+        if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == owner then
             ReleasePlayer(v)
-            if IsValid(self.Owner) then
-                self.Owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
-            end
+            owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
             break
         end
     end
 
     local trace = {}
-    trace.start = self.Owner:EyePos()
-    trace.endpos = trace.start + self.Owner:GetAimVector() * 95
-    trace.filter = self.Owner
+    trace.start = owner:EyePos()
+    trace.endpos = trace.start + owner:GetAimVector() * 95
+    trace.filter = owner
 
     local tr = util.TraceLine(trace)
     local target = tr.Entity
     if target:IsValid() and (target:IsPlayer() or target:IsNPC()) then
-        if not IsValid(self.Owner) then return end
+        if not IsValid(owner) then return end
         if target:GetNWBool("WasCuffed", false) or target:GetNWBool("IsCuffed", false) then
-            self.Owner:PrintMessage(HUD_PRINTCENTER, "You can't cuff the same person 2 times.")
+            owner:PrintMessage(HUD_PRINTCENTER, "You can't cuff the same person 2 times.")
             return
         end
 
-        self.Owner:PrintMessage(HUD_PRINTCENTER, "Player was cuffed.")
-        self.Owner:EmitSound("npc/metropolice/vo/holdit.wav", 50, 100)
+        owner:PrintMessage(HUD_PRINTCENTER, "Player was cuffed.")
+        owner:EmitSound("npc/metropolice/vo/holdit.wav", 50, 100)
 
+        target:SetNWBool("IsCuffed", true)
+        target:SetNWEntity("CuffedBy", owner)
         target:PrintMessage(HUD_PRINTCENTER, "You was cuffed.")
         target:EmitSound("npc/metropolice/vo/holdit.wav", 50, 100)
 
         timer.Create(target:Nick() .. "_EndCuffed", 30, 1, function()
             if target:IsValid() and (target:IsPlayer() or target:IsNPC()) and target:GetNWBool("IsCuffed", false) then
                 ReleasePlayer(target)
-                if IsValid(self.Owner) then
-                    self.Owner:PrintMessage(HUD_PRINTCENTER, "30 seconds are up.")
+                if IsValid(owner) then
+                    owner:PrintMessage(HUD_PRINTCENTER, "30 seconds are up.")
                 end
             end
         end)
@@ -143,8 +146,6 @@ function SWEP:PrimaryAttack()
         timer.Create(target:Nick() .. "_CantPickUp", 0.01, 0, function()
             if not IsValid(target) or not target:IsPlayer() then return end
 
-            target:SetNWBool("IsCuffed", true)
-            target:SetNWEntity("CuffedBy", self.Owner)
             for _, v in pairs(target:GetWeapons()) do
                 local class = v:GetClass()
                 -- Don't drop crowbar since a new one is given
@@ -160,10 +161,13 @@ end
 function SWEP:SecondaryAttack()
     if CLIENT then return end
 
+    local owner = self:GetOwner()
+    if not IsValid(owner) then return end
+
     local trace = { }
-    trace.start = self.Owner:EyePos()
-    trace.endpos = trace.start + self.Owner:GetAimVector() * 95
-    trace.filter = self.Owner
+    trace.start = owner:EyePos()
+    trace.endpos = trace.start + owner:GetAimVector() * 95
+    trace.filter = owner
 
     local tr = util.TraceLine(trace)
     local target = tr.Entity
@@ -172,9 +176,9 @@ function SWEP:SecondaryAttack()
         if target:GetNWBool("IsCuffed", false) then
             ReleasePlayer(target)
             target:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
-            self.Owner:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
+            owner:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
         elseif target:GetNWBool("WasCuffed", false) or not target:GetNWBool("IsCuffed", false) then
-            self.Owner:PrintMessage(HUD_PRINTCENTER, "Player isn't cuffed")
+            owner:PrintMessage(HUD_PRINTCENTER, "Player isn't cuffed")
         end
     end
 end
