@@ -1,6 +1,6 @@
 
 if SERVER then
-    AddCSLuaFile("shared.lua")
+    AddCSLuaFile()
 
     resource.AddFile("materials/katharsmodels/handcuffs/handcuffs_body.vmt")
     resource.AddFile("materials/katharsmodels/handcuffs/handcuffs_body.vtf")
@@ -77,6 +77,9 @@ if CLIENT then
         pos = pos + ang:Forward()*6
         return pos, ang
     end
+
+    function SWEP:PrimaryAttack() end
+    function SWEP:SecondaryAttack() end
 end
 
 function SWEP:Think()
@@ -86,110 +89,133 @@ function SWEP:Initialize()
     self:SetWeaponHoldType(self.HoldType)
 end
 
-local function ReleasePlayer(ply)
-    timer.Stop(ply:Nick() .. "_CantPickUp")
-    ply:SetNWBool("IsCuffed", false)
-    ply:SetNWEntity("CuffedBy", nil)
-    ply:SetNWBool("WasCuffed", true)
-    ply:Give("weapon_zm_improvised")
-    ply:Give("weapon_zm_carry")
-    ply:Give("weapon_ttt_unarmed")
-    ply:PrintMessage(HUD_PRINTCENTER, "You are released.")
-end
+if SERVER then
+    local saveBlocklist = {"weapon_zm_carry", "weapon_ttt_unarmed"}
+    local playerNonDroppables = {}
 
-function SWEP:PrimaryAttack()
-    if CLIENT then return end
+    local function ReleasePlayer(ply)
+        ply:SetNWBool("IsCuffed", false)
+        ply:SetNWEntity("CuffedBy", nil)
+        ply:SetNWBool("WasCuffed", true)
 
-    local owner = self:GetOwner()
-    if not IsValid(owner) then return end
+        local sid64 = ply:SteamID64()
+        local hasCrowbar = false
+        if playerNonDroppables[sid64] then
+            for _, data in ipairs(playerNonDroppables[sid64]) do
+                local wep = ply:Give(data.class)
+                wep:SetClip1(data.clip1)
+                wep:SetClip2(data.clip2)
 
-    -- Release the other players cuffed by this person
-    for _, v in pairs(player.GetAll()) do
-        if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == owner then
-            ReleasePlayer(v)
-            owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
-            break
-        end
-    end
-
-    local trace = {}
-    trace.start = owner:EyePos()
-    trace.endpos = trace.start + owner:GetAimVector() * 95
-    trace.filter = owner
-
-    local tr = util.TraceLine(trace)
-    local target = tr.Entity
-    if target:IsValid() and (target:IsPlayer() or target:IsNPC()) then
-        if not IsValid(owner) then return end
-        if target:GetNWBool("WasCuffed", false) or target:GetNWBool("IsCuffed", false) then
-            owner:PrintMessage(HUD_PRINTCENTER, "You can't cuff the same person 2 times.")
-            return
-        end
-
-        owner:PrintMessage(HUD_PRINTCENTER, "Player was cuffed.")
-        owner:EmitSound("npc/metropolice/vo/holdit.wav", 50, 100)
-
-        target:SetNWBool("IsCuffed", true)
-        target:SetNWEntity("CuffedBy", owner)
-        target:PrintMessage(HUD_PRINTCENTER, "You was cuffed.")
-        target:EmitSound("npc/metropolice/vo/holdit.wav", 50, 100)
-
-        timer.Create(target:Nick() .. "_EndCuffed", 30, 1, function()
-            if target:IsValid() and (target:IsPlayer() or target:IsNPC()) and target:GetNWBool("IsCuffed", false) then
-                ReleasePlayer(target)
-                if IsValid(owner) then
-                    owner:PrintMessage(HUD_PRINTCENTER, "30 seconds are up.")
+                if data.class == "weapon_kil_crowbar" then
+                    hasCrowbar = true
                 end
             end
-        end)
+            playerNonDroppables[sid64] = nil
+        end
+        if not hasCrowbar then
+            ply:Give("weapon_zm_improvised")
+        end
+        ply:Give("weapon_zm_carry")
+        ply:Give("weapon_ttt_unarmed")
+        ply:PrintMessage(HUD_PRINTCENTER, "You are released.")
+    end
 
-        timer.Create(target:Nick() .. "_CantPickUp", 0.01, 0, function()
-            if not IsValid(target) or not target:IsPlayer() then return end
+    function SWEP:PrimaryAttack()
+        local owner = self:GetOwner()
+        if not IsValid(owner) then return end
+
+        -- Release the other players cuffed by this person
+        for _, v in pairs(player.GetAll()) do
+            if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == owner then
+                ReleasePlayer(v)
+                owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
+                break
+            end
+        end
+
+        local trace = {}
+        trace.start = owner:EyePos()
+        trace.endpos = trace.start + owner:GetAimVector() * 95
+        trace.filter = owner
+
+        local tr = util.TraceLine(trace)
+        local target = tr.Entity
+        if target:IsValid() and (target:IsPlayer() or target:IsNPC()) then
+            if not IsValid(owner) then return end
+            if target:GetNWBool("WasCuffed", false) or target:GetNWBool("IsCuffed", false) then
+                owner:PrintMessage(HUD_PRINTCENTER, "You can't cuff the same person 2 times.")
+                return
+            end
+
+            owner:PrintMessage(HUD_PRINTCENTER, "Player was cuffed.")
+            owner:EmitSound("npc/metropolice/vo/holdit.wav", 50, 100)
+
+            target:SetNWBool("IsCuffed", true)
+            target:SetNWEntity("CuffedBy", owner)
+            target:PrintMessage(HUD_PRINTCENTER, "You was cuffed.")
+            target:EmitSound("npc/metropolice/vo/holdit.wav", 50, 100)
+
+            timer.Create(target:Nick() .. "_EndCuffed", 30, 1, function()
+                if target:IsValid() and (target:IsPlayer() or target:IsNPC()) and target:GetNWBool("IsCuffed", false) then
+                    ReleasePlayer(target)
+                    if IsValid(owner) then
+                        owner:PrintMessage(HUD_PRINTCENTER, "30 seconds are up.")
+                    end
+                end
+            end)
+
+            local sid64 = target:SteamID64()
+            playerNonDroppables[sid64] = {}
 
             for _, v in pairs(target:GetWeapons()) do
                 local class = v:GetClass()
                 -- Don't drop crowbar since a new one is given
                 if class ~= "weapon_zm_improvised" then
-                    target:DropWeapon(v)
+                    -- Only drop droppables (but skip the Killer crowbar)
+                    if v.AllowDrop and class ~= "weapon_kil_crowbar" then
+                        target:DropWeapon(v)
+                    -- Save everything else to give back to the player later
+                    elseif not table.HasValue(saveBlocklist, class) then
+                        table.insert(playerNonDroppables[sid64], {
+                            class = class,
+                            clip1 = v:Clip1(),
+                            clip2 = v:Clip2()
+                        })
+                    end
                 end
                 target:StripWeapon(class)
             end
-        end)
-    end
-end
-
-function SWEP:SecondaryAttack()
-    if CLIENT then return end
-
-    local owner = self:GetOwner()
-    if not IsValid(owner) then return end
-
-    local trace = { }
-    trace.start = owner:EyePos()
-    trace.endpos = trace.start + owner:GetAimVector() * 95
-    trace.filter = owner
-
-    local tr = util.TraceLine(trace)
-    local target = tr.Entity
-
-    if target:IsValid() and target:IsPlayer() and target:Alive() then
-        if target:GetNWBool("IsCuffed", false) then
-            ReleasePlayer(target)
-            target:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
-            owner:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
-        elseif target:GetNWBool("WasCuffed", false) or not target:GetNWBool("IsCuffed", false) then
-            owner:PrintMessage(HUD_PRINTCENTER, "Player isn't cuffed")
         end
     end
-end
 
-if SERVER then
+    function SWEP:SecondaryAttack()
+        local owner = self:GetOwner()
+        if not IsValid(owner) then return end
+
+        local trace = { }
+        trace.start = owner:EyePos()
+        trace.endpos = trace.start + owner:GetAimVector() * 95
+        trace.filter = owner
+
+        local tr = util.TraceLine(trace)
+        local target = tr.Entity
+
+        if target:IsValid() and target:IsPlayer() and target:Alive() then
+            if target:GetNWBool("IsCuffed", false) then
+                ReleasePlayer(target)
+                target:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
+                owner:EmitSound("npc/metropolice/vo/getoutofhere.wav", 50, 100)
+            elseif target:GetNWBool("WasCuffed", false) or not target:GetNWBool("IsCuffed", false) then
+                owner:PrintMessage(HUD_PRINTCENTER, "Player isn't cuffed")
+            end
+        end
+    end
+
     local function ClearPlayer(ply)
         ply:SetNWBool("WasCuffed", false)
         ply:SetNWBool("IsCuffed", false)
         ply:SetNWEntity("CuffedBy", nil)
         timer.Stop(ply:Nick() .. "_EndCuffed")
-        timer.Stop(ply:Nick() .. "_CantPickUp")
     end
 
     local function StopCantPickUp()
