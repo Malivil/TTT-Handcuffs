@@ -90,6 +90,8 @@ function SWEP:Initialize()
 end
 
 if SERVER then
+    local handcuff_time = CreateConVar("ttt_handcuff_time", 30, FCVAR_NONE, "The amount of seconds a player should stay handcuffed.", 0, 120)
+    local handcuff_multiple = CreateConVar("ttt_handcuff_multiple", 0, FCVAR_NONE, "Whether multiple players can be handcuffed by the same person.", 0, 1)
     local saveBlocklist = {"weapon_zm_carry", "weapon_ttt_unarmed"}
     local playerNonDroppables = {}
 
@@ -125,11 +127,13 @@ if SERVER then
         if not IsValid(owner) then return end
 
         -- Release the other players cuffed by this person
-        for _, v in pairs(player.GetAll()) do
-            if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == owner then
-                ReleasePlayer(v)
-                owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
-                break
+        if not handcuff_multiple:GetBool() then
+            for _, v in pairs(player.GetAll()) do
+                if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == owner then
+                    ReleasePlayer(v)
+                    owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
+                    break
+                end
             end
         end
 
@@ -155,14 +159,17 @@ if SERVER then
             target:PrintMessage(HUD_PRINTCENTER, "You was cuffed.")
             target:EmitSound("npc/metropolice/vo/holdit.wav", 50, 100)
 
-            timer.Create(target:Nick() .. "_EndCuffed", 30, 1, function()
-                if target:IsValid() and (target:IsPlayer() or target:IsNPC()) and target:GetNWBool("IsCuffed", false) then
-                    ReleasePlayer(target)
-                    if IsValid(owner) then
-                        owner:PrintMessage(HUD_PRINTCENTER, "30 seconds are up.")
+            local time = handcuff_time:GetInt()
+            if time > 0 then
+                timer.Create(target:Nick() .. "_EndCuffed", time, 1, function()
+                    if target:IsValid() and (target:IsPlayer() or target:IsNPC()) and target:GetNWBool("IsCuffed", false) then
+                        ReleasePlayer(target)
+                        if IsValid(owner) then
+                            owner:PrintMessage(HUD_PRINTCENTER, time .. " seconds are up, " .. target:Nick() .. " has been released.")
+                        end
                     end
-                end
-            end)
+                end)
+            end
 
             local sid64 = target:SteamID64()
             playerNonDroppables[sid64] = {}
