@@ -126,17 +126,6 @@ if SERVER then
         local owner = self:GetOwner()
         if not IsValid(owner) then return end
 
-        -- Release the other players cuffed by this person
-        if not handcuff_multiple:GetBool() then
-            for _, v in pairs(player.GetAll()) do
-                if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == owner then
-                    ReleasePlayer(v)
-                    owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
-                    break
-                end
-            end
-        end
-
         local trace = {}
         trace.start = owner:EyePos()
         trace.endpos = trace.start + owner:GetAimVector() * 95
@@ -149,6 +138,17 @@ if SERVER then
             if target:GetNWBool("WasCuffed", false) or target:GetNWBool("IsCuffed", false) then
                 owner:PrintMessage(HUD_PRINTCENTER, "You can't cuff the same person 2 times.")
                 return
+            end
+
+            -- Release the other players cuffed by this person
+            if not handcuff_multiple:GetBool() then
+                for _, v in pairs(player.GetAll()) do
+                    if v:IsValid() and (v:IsPlayer() or v:IsNPC()) and v:GetNWBool("IsCuffed", false) and v:GetNWEntity("CuffedBy", nil) == owner then
+                        ReleasePlayer(v)
+                        owner:PrintMessage(HUD_PRINTTALK, "Other cuffed player was released.")
+                        break
+                    end
+                end
             end
 
             owner:PrintMessage(HUD_PRINTCENTER, "Player was cuffed.")
