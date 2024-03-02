@@ -171,6 +171,8 @@ if SERVER then
                 end)
             end
 
+            hook.Call("TTTPlayerHandcuffed", nil, owner, target, time)
+
             local sid64 = target:SteamID64()
             playerNonDroppables[sid64] = {}
 
