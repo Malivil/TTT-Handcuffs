@@ -1,16 +1,6 @@
 
 if SERVER then
     AddCSLuaFile()
-
-    resource.AddFile("materials/katharsmodels/handcuffs/handcuffs_body.vmt")
-    resource.AddFile("materials/katharsmodels/handcuffs/handcuffs_body.vtf")
-    resource.AddFile("materials/katharsmodels/handcuffs/handcuffs_claw.vmt")
-    resource.AddFile("materials/katharsmodels/handcuffs/handcuffs_claw.vtf")
-    resource.AddFile("models/katharsmodels/handcuffs/handcuffs-1.mdl")
-    resource.AddFile("models/katharsmodels/handcuffs/handcuffs-3.mdl")
-    resource.AddFile("materials/katharsmodels/handcuffs/handcuffs_extras.vmt")
-    resource.AddFile("materials/katharsmodels/handcuffs/handcuffs_extras.vtf")
-    resource.AddFile("materials/vgui/ttt/icon_handscuffs.png")
 end
 
 if CLIENT then
