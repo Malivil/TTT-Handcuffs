@@ -82,8 +82,17 @@ end
 if SERVER then
     local handcuff_time = CreateConVar("ttt_handcuff_time", 30, FCVAR_NONE, "The amount of seconds a player should stay handcuffed.", 0, 120)
     local handcuff_multiple = CreateConVar("ttt_handcuff_multiple", 0, FCVAR_NONE, "Whether multiple players can be handcuffed by the same person.", 0, 1)
-    local saveBlocklist = {"weapon_zm_carry", "weapon_ttt_unarmed"}
     local playerNonDroppables = {}
+    local playerCrowbarUpgrades = {}
+
+    local function HandleWeaponPAP(weap, upgrade)
+        -- If PAP is installed, this weapon was given successfully, and the old one was PAP'd, then PAP the new one too
+        if not TTTPAP then return end
+        if not upgrade then return end
+        if not IsValid(weap) then return end
+
+        TTTPAP:ApplyUpgrade(weap, upgrade)
+    end
 
     local function ReleasePlayer(ply)
         ply:SetNWBool("IsCuffed", false)
@@ -98,6 +107,7 @@ if SERVER then
                 wep:SetClip1(data.clip1)
                 wep:SetClip2(data.clip2)
 
+                HandleWeaponPAP(wep, data.PAPUpgrade)
                 if data.class == "weapon_kil_crowbar" then
                     hasCrowbar = true
                 end
@@ -105,10 +115,9 @@ if SERVER then
             playerNonDroppables[sid64] = nil
         end
         if not hasCrowbar then
-            ply:Give("weapon_zm_improvised")
+            HandleWeaponPAP(ply:Give("weapon_zm_improvised"), playerCrowbarUpgrades[sid64])
+            playerCrowbarUpgrades[sid64] = nil
         end
-        ply:Give("weapon_zm_carry")
-        ply:Give("weapon_ttt_unarmed")
         ply:PrintMessage(HUD_PRINTCENTER, "You are released.")
     end
 
@@ -167,18 +176,21 @@ if SERVER then
             playerNonDroppables[sid64] = {}
 
             for _, v in pairs(target:GetWeapons()) do
-                local class = v:GetClass()
-                -- Don't drop crowbar since a new one is given
-                if class ~= "weapon_zm_improvised" then
+                local class = WEPS.GetClass(v)
+                -- Don't drop crowbar since a new one is given, but do save if it has a PAP upgrade
+                if class == "weapon_zm_improvised" then
+                    playerCrowbarUpgrades[sid64] = v.PAPUpgrade
+                else
                     -- Only drop droppables (but skip the Killer crowbar)
                     if v.AllowDrop and class ~= "weapon_kil_crowbar" then
                         target:DropWeapon(v)
                     -- Save everything else to give back to the player later
-                    elseif not table.HasValue(saveBlocklist, class) then
+                    else
                         table.insert(playerNonDroppables[sid64], {
                             class = class,
                             clip1 = v:Clip1(),
-                            clip2 = v:Clip2()
+                            clip2 = v:Clip2(),
+                            PAPUpgrade = v.PAPUpgrade
                         })
                     end
                 end
