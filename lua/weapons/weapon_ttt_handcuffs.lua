@@ -196,6 +196,9 @@ if SERVER then
                 end
                 target:StripWeapon(class)
             end
+
+            -- Reset FOV to unscope
+            target:SetFOV(0, 0.2)
         end
     end
 

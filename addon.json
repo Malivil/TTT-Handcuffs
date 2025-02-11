@@ -3,12 +3,17 @@
   "type": "ServerContent",
   "ignore": [
     ".git*",
-	".vscode*",
+    ".vscode*",
+    "*.md",
     "*.iml",
     ".idea*",
+    ".luacheckrc",
     "*.psd",
-    "*.vcproj",
+    "*.rockspec",
     "*.svn*",
-    "LICENSE"
+    "*.vcproj",
+    "LICENSE",
+    "*.sw.vtx",
+    "*.xbox.vtx"
   ]
 }
