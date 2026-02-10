@@ -58,6 +58,8 @@ SWEP.Secondary.DefaultClip = -1
 SWEP.Secondary.Automatic   = false
 SWEP.Secondary.Ammo        = "none"
 
+local handcuff_fixed_hold_position = CreateConVar("ttt_handcuff_fixed_hold_position", 1, FCVAR_REPLICATED, "Whether to fix the position the handcuffs are held by the player. Disable for some nostalgia and laughs.", 0, 1)
+
 function SWEP:Reload()
 end
 
@@ -70,6 +72,55 @@ if CLIENT then
 
     function SWEP:PrimaryAttack() end
     function SWEP:SecondaryAttack() end
+
+    -- From: https://wiki.facepunch.com/gmod/WEAPON:DrawWorldModel
+    SWEP.ClientWorldModel = ClientsideModel(SWEP.WorldModel)
+
+    SWEP.ClientWorldModel:SetNoDraw(true)
+
+    function SWEP:DrawWorldModel(flags)
+        if not handcuff_fixed_hold_position:GetBool() then
+            self:DrawModel(flags)
+            return
+        end
+
+        local owner = self:GetOwner()
+
+        if IsValid(owner) then
+            -- Specify a good position
+            local offsetVec = Vector(5, -2.7, -3.4)
+            local offsetAng = Angle(180, 90, 0)
+
+            local bone = owner:LookupBone("ValveBiped.Bip01_R_Hand") -- Right Hand
+            if not bone then
+                self:DrawModel(flags)
+                return
+            end
+
+            local matrix = owner:GetBoneMatrix(bone)
+            if not matrix then
+                self:DrawModel(flags)
+                return
+            end
+
+            local newPos, newAng = LocalToWorld(offsetVec, offsetAng, matrix:GetTranslation(), matrix:GetAngles())
+
+            self.ClientWorldModel:SetPos(newPos)
+            self.ClientWorldModel:SetAngles(newAng)
+
+            self.ClientWorldModel:SetupBones()
+        else
+            self.ClientWorldModel:SetPos(self:GetPos())
+            self.ClientWorldModel:SetAngles(self:GetAngles())
+        end
+
+        self.ClientWorldModel:DrawModel()
+    end
+
+    function SWEP:OnRemove()
+        SafeRemoveEntity(self.ClientWorldModel)
+        self.ClientWorldModel = nil
+    end
 end
 
 function SWEP:Think()
