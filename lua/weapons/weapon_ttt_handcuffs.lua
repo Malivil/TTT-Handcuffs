@@ -73,15 +73,17 @@ if CLIENT then
     function SWEP:PrimaryAttack() end
     function SWEP:SecondaryAttack() end
 
-    -- From: https://wiki.facepunch.com/gmod/WEAPON:DrawWorldModel
-    SWEP.ClientWorldModel = ClientsideModel(SWEP.WorldModel)
-
-    SWEP.ClientWorldModel:SetNoDraw(true)
-
+    -- Adapted from: https://wiki.facepunch.com/gmod/WEAPON:DrawWorldModel
+    SWEP.ClientWorldModel = nil
     function SWEP:DrawWorldModel(flags)
         if not handcuff_fixed_hold_position:GetBool() then
             self:DrawModel(flags)
             return
+        end
+
+        if not IsValid(self.ClientWorldModel) or self.ClientWorldModel == NULL then
+            self.ClientWorldModel = ClientsideModel(self.WorldModel)
+            self.ClientWorldModel:SetNoDraw(true)
         end
 
         local owner = self:GetOwner()
